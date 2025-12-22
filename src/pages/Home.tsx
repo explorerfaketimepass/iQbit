@@ -561,21 +561,20 @@ const Home = () => {
                 index, // Index of row within collection
                 style, // Style object to be applied to row (to position it)
               }) => (
-                <div key={key}>
-                  <TorrentBox
-                    torrentData={Torrents[index][1]}
-                    hash={Torrents[index][0]}
-                    categories={Object.values(categories || {})}
-                    isSelected={selectedTorrents.includes(Torrents[index][0])}
-                    selectionMode={selectedTorrents.length > 0}
-                    toggleSelection={toggleSelection}
-                    style={{
-                      ...style,
-                      paddingBottom:
-                        index === Torrents.length - 1 ? "30vh" : undefined,
-                    }}
-                  />
-                </div>
+                <TorrentBox
+                  key={key}
+                  torrentData={Torrents[index][1]}
+                  hash={Torrents[index][0]}
+                  categories={Object.values(categories || {})}
+                  isSelected={selectedTorrents.includes(Torrents[index][0])}
+                  selectionMode={selectedTorrents.length > 0}
+                  toggleSelection={toggleSelection}
+                  style={{
+                    ...style,
+                    paddingBottom:
+                      index === Torrents.length - 1 ? "30vh" : undefined,
+                  }}
+                />
               )}
             />
 
