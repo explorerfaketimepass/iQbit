@@ -70,7 +70,7 @@ const TorrentDownloadBox = ({
         {children}
       </Box>
       <LightMode>
-        <Flex width="100%">
+        <Flex width={!isLarge ? "100%" : "30%"}>
           <Button
             minW={32}
             disabled={
@@ -88,7 +88,6 @@ const TorrentDownloadBox = ({
             }}
             leftIcon={isSuccess ? <IoCheckmark /> : undefined}
             flexGrow={1}
-            roundedRight={0}
           >
             {isSuccess ? "Added" : "Download"}
           </Button>
