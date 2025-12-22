@@ -322,6 +322,11 @@ const TorrentBox = ({
     }
   };
 
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    actionSheetDisclosure.onOpen();
+  };
+
   const selectedBg = useColorModeValue("blue.50", "whiteAlpha.200");
 
   if (loading) {
@@ -337,6 +342,7 @@ const TorrentBox = ({
       onMouseUp={handleInteractionEnd}
       onMouseLeave={handleInteractionEnd}
       onClickCapture={handleClick}
+      onContextMenu={handleContextMenu}
     >
       <Box
         px={5}
