@@ -7,8 +7,10 @@ import {
   FormErrorMessage,
   FormLabel,
   Heading,
+  HStack,
   LightMode,
   Select,
+  Text,
   Textarea,
   useColorModeValue,
   useDisclosure,
@@ -16,7 +18,7 @@ import {
   VStack,
   IconButton,
 } from "@chakra-ui/react";
-import { IoDocumentAttach, IoPause, IoPlay } from "react-icons/io5";
+import { IoDocumentAttach, IoPause, IoPlay, IoClose, IoTrash } from "react-icons/io5";
 import { useMutation, useQuery } from "react-query";
 import { TorrClient } from "../utils/TorrClient";
 import { useMemo, useState } from "react";
@@ -48,6 +50,64 @@ const Home = () => {
   }>({});
 
   const [removedTorrs, setRemovedTorrs] = useState<string[]>([]);
+  const [selectedTorrents, setSelectedTorrents] = useState<string[]>([]);
+
+  const toggleSelection = (hash: string) => {
+    setSelectedTorrents((prev) => {
+      if (prev.includes(hash)) {
+        return prev.filter((h) => h !== hash);
+      } else {
+        return [...prev, hash];
+      }
+    });
+  };
+
+  const deleteMultipleDisclosure = useDisclosure();
+  const { mutate: removeMultiple } = useMutation(
+    "deleteMultipleTorrents",
+    async (deleteFiles: boolean) => {
+      await Promise.all(
+        selectedTorrents.map((hash) => TorrClient.remove(hash, deleteFiles))
+      );
+    },
+    {
+      onSuccess: () => {
+        setSelectedTorrents([]);
+        deleteMultipleDisclosure.onClose();
+        queryClient.invalidateQueries("torrentsTxData");
+      },
+    }
+  );
+
+  const { mutate: pauseMultiple } = useMutation(
+    "pauseMultipleTorrents",
+    async () => {
+      await Promise.all(
+        selectedTorrents.map((hash) => TorrClient.pause(hash))
+      );
+    },
+    {
+      onSuccess: () => {
+        setSelectedTorrents([]);
+        queryClient.invalidateQueries("torrentsTxData");
+      },
+    }
+  );
+
+  const { mutate: resumeMultiple } = useMutation(
+    "resumeMultipleTorrents",
+    async () => {
+      await Promise.all(
+        selectedTorrents.map((hash) => TorrClient.resume(hash))
+      );
+    },
+    {
+      onSuccess: () => {
+        setSelectedTorrents([]);
+        queryClient.invalidateQueries("torrentsTxData");
+      },
+    }
+  );
 
   const { data: categories } = useQuery(
     "torrentsCategory",
@@ -178,6 +238,7 @@ const Home = () => {
   };
 
   const bgColor = useColorModeValue("white", "gray.900");
+  const borderColor = useColorModeValue("gray.200", "gray.700");
 
   const filterIndicator = useMemo(() => {
     let indicator = 0;
@@ -505,6 +566,9 @@ const Home = () => {
                     torrentData={Torrents[index][1]}
                     hash={Torrents[index][0]}
                     categories={Object.values(categories || {})}
+                    isSelected={selectedTorrents.includes(Torrents[index][0])}
+                    selectionMode={selectedTorrents.length > 0}
+                    toggleSelection={toggleSelection}
                     style={{
                       ...style,
                       paddingBottom:
@@ -514,6 +578,88 @@ const Home = () => {
                 </div>
               )}
             />
+
+            {selectedTorrents.length > 0 && (
+              <Box
+                position="fixed"
+                bottom={5}
+                left="50%"
+                transform="translateX(-50%)"
+                zIndex={1000}
+                bgColor={bgColor}
+                boxShadow="lg"
+                rounded="full"
+                px={6}
+                py={3}
+                display="flex"
+                alignItems="center"
+                gap={4}
+                borderWidth={1}
+                borderColor={borderColor}
+              >
+                <Text fontWeight="bold">
+                  {selectedTorrents.length} selected
+                </Text>
+                <HStack>
+                  <IconButton
+                    aria-label="Resume selected"
+                    icon={<IoPlay />}
+                    size="sm"
+                    colorScheme="blue"
+                    onClick={() => resumeMultiple()}
+                  />
+                  <IconButton
+                    aria-label="Pause selected"
+                    icon={<IoPause />}
+                    size="sm"
+                    colorScheme="orange"
+                    onClick={() => pauseMultiple()}
+                  />
+                  <Button
+                    size="sm"
+                    colorScheme="red"
+                    leftIcon={<IoTrash />}
+                    onClick={deleteMultipleDisclosure.onOpen}
+                  >
+                    Delete
+                  </Button>
+                </HStack>
+                <IconButton
+                  aria-label="Cancel selection"
+                  icon={<IoClose />}
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setSelectedTorrents([])}
+                />
+              </Box>
+            )}
+
+            <IosBottomSheet
+              title="Delete Torrents"
+              disclosure={deleteMultipleDisclosure}
+            >
+              <VStack gap={3} pb={6}>
+                <Text>
+                  Are you sure you want to delete {selectedTorrents.length}{" "}
+                  torrents?
+                </Text>
+                <Button
+                  width="100%"
+                  colorScheme="red"
+                  variant="outline"
+                  onClick={() => removeMultiple(false)}
+                >
+                  Remove
+                </Button>
+                <Button
+                  width="100%"
+                  colorScheme="red"
+                  onClick={() => removeMultiple(true)}
+                >
+                  Remove and delete files
+                </Button>
+              </VStack>
+            </IosBottomSheet>
 
             {/*{Object.entries(torrentsTx)*/}
             {/*  ?.sort((a, b) => b[1]?.added_on - a[1]?.added_on)*/}

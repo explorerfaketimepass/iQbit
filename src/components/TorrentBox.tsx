@@ -52,6 +52,9 @@ export interface TorrentBoxProps {
   categories: TorrCategory[];
   loading?: boolean;
   style?: any;
+  isSelected?: boolean;
+  selectionMode?: boolean;
+  toggleSelection?: (hash: string) => void;
 }
 
 const TorrentBox = ({
@@ -60,6 +63,9 @@ const TorrentBox = ({
   categories,
   loading,
   style,
+  isSelected,
+  selectionMode,
+  toggleSelection,
 }: TorrentBoxProps) => {
   const BoxBg = useColorModeValue("white", "gray.900");
 
@@ -279,13 +285,70 @@ const TorrentBox = ({
 
   const actionSheetDisclosure = useDisclosure();
 
+  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(
+    null
+  );
+  const [isLongPress, setIsLongPress] = useState(false);
+
+  const handleInteractionStart = () => {
+    setIsLongPress(false);
+    const timer = setTimeout(() => {
+      if (toggleSelection) {
+        setIsLongPress(true);
+        toggleSelection(hash);
+        if (navigator.vibrate) navigator.vibrate(50);
+      }
+    }, 500);
+    setLongPressTimer(timer);
+  };
+
+  const handleInteractionEnd = () => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      setLongPressTimer(null);
+    }
+  };
+
+  const handleClick = (e: React.MouseEvent) => {
+    if (isLongPress) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    if (selectionMode && toggleSelection) {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleSelection(hash);
+    }
+  };
+
+  const selectedBg = useColorModeValue("blue.50", "whiteAlpha.200");
+
   if (loading) {
     return <LoadingCard style={style} />;
   }
 
   return (
-    <div style={style}>
-      <Box px={5} py={4} rounded={"xl"} bgColor={BoxBg} mb={5}>
+    <div
+      style={style}
+      onTouchStart={handleInteractionStart}
+      onTouchEnd={handleInteractionEnd}
+      onMouseDown={handleInteractionStart}
+      onMouseUp={handleInteractionEnd}
+      onMouseLeave={handleInteractionEnd}
+      onClickCapture={handleClick}
+    >
+      <Box
+        px={5}
+        py={4}
+        rounded={"xl"}
+        bgColor={isSelected ? selectedBg : BoxBg}
+        mb={5}
+        border={isSelected ? "2px solid" : undefined}
+        borderColor={"blue.500"}
+        transition={"all 0.2s"}
+        transform={isSelected ? "scale(0.98)" : undefined}
+      >
         <Popover placement={"top"}>
           <PopoverTrigger>
             <Flex alignItems={"center"}>
