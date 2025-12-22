@@ -30,10 +30,13 @@ import { FilterHeading } from "../components/Filters";
 import stateDictionary from "../utils/StateDictionary";
 import { useLocalStorage } from "usehooks-ts";
 import { useFontSizeContext } from "../components/FontSizeProvider";
+import { useQueryClient } from "react-query";
 
 import { List, WindowScroller } from "react-virtualized";
 
 const Home = () => {
+  const queryClient = useQueryClient();
+  
   const { mutate: resumeAll } = useMutation("resumeAll", TorrClient.resumeAll);
 
   const { mutate: pauseAll } = useMutation("resumeAll", TorrClient.pauseAll);
@@ -128,18 +131,30 @@ const Home = () => {
   };
 
   const { mutate: attemptAddTorrent, isLoading: attemptAddLoading } = useMutation(
-    async (opts: { autoTmm?: boolean, payload?: string | File | File[], downloadFolder?: string }) => {
+    async (opts: { autoTmm?: boolean, payload?: string | File | File[], downloadFolder?: string, category?: string }) => {
       if (!!textArea) {
-        return await TorrClient.addTorrent("urls", textArea);
+        return await TorrClient.addTorrent("urls", textArea, opts.category, opts.downloadFolder);
       } else {
         if (Array.isArray(opts.payload)) {
-          return await Promise.all(opts.payload.map((file) => TorrClient.addTorrent("torrents", file, "", opts.downloadFolder)));
+          return await Promise.all(opts.payload.map((file) => TorrClient.addTorrent("torrents", file, opts.category || "", opts.downloadFolder)));
         } else {
-          return await TorrClient.addTorrent("torrents", opts.payload as File);
+          return await TorrClient.addTorrent("torrents", opts.payload as File, opts.category, opts.downloadFolder);
         }
       }
     },
-    { onSuccess: addModalDisclosure.onClose }
+    { 
+      onSuccess: () => {
+        // Clear form
+        setTextArea("");
+        setFiles([]);
+        setSelectedCategory("");
+        setDownloadFolder("");
+        
+        addModalDisclosure.onClose();
+        // Invalidate the sync query to force a full update and show new torrent immediately
+        queryClient.invalidateQueries("torrentsTxData");
+      }
+    }
   );
 
   const filterDisclosure = useDisclosure();
@@ -364,7 +379,14 @@ const Home = () => {
                   <Select
                     placeholder="Select category"
                     value={selectedCategory}
-                    onChange={(e) => setSelectedCategory(e.target.value)}
+                    onChange={(e) => {
+                      const selected = e.target.value;
+                      setSelectedCategory(selected);
+                      // Auto-set download folder from category's savePath
+                      if (selected && categories && categories[selected]) {
+                        setDownloadFolder(categories[selected].savePath);
+                      }
+                    }}
                   >
                     {Categories.map((c) => (
                       <option key={c.label}>{c.label}</option>
@@ -382,7 +404,12 @@ const Home = () => {
                 colorScheme={"blue"}
                 mt={16}
                 onClick={() =>
-                  attemptAddTorrent({ autoTmm: settings?.auto_tmm_enabled, downloadFolder, payload: !!textArea ? textArea : files })
+                  attemptAddTorrent({ 
+                    autoTmm: settings?.auto_tmm_enabled, 
+                    downloadFolder, 
+                    category: selectedCategory,
+                    payload: !!textArea ? textArea : files 
+                  })
                 }
               >
                 {"Add Torrent"}
