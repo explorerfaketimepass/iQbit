@@ -189,7 +189,7 @@ function IosActionSheet<Y>({
         onClose={disclosure.onClose}
         placement={"auto-start"}
       >
-        <MenuButton onClick={disclosure.onToggle} _hover={{ bg: "grayAlpha.200" }} borderRadius="md">{triggerWithoutOnClick}</MenuButton>
+        <MenuButton as={trigger ? Box : "button"} onClick={disclosure.onToggle} _hover={trigger ? {} : { bg: "grayAlpha.200" }}>{triggerWithoutOnClick}</MenuButton>
         <MenuList
           overflow={"visible"}
           backgroundColor={"transparent"}

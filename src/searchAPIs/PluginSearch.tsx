@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { SearchProviderComponentProps } from "../types";
 import IosSearch from "../components/ios/IosSearch";
 import {
+  Box,
   Button,
   Flex,
   FormControl,
@@ -9,31 +10,60 @@ import {
   Heading,
   Input,
   LightMode,
+  Menu,
+  MenuButton,
+  MenuItemOption,
+  MenuList,
+  MenuOptionGroup,
   Spinner,
   useColorModeValue,
+  useDisclosure,
   VStack,
 } from "@chakra-ui/react";
 import { useMutation, useQuery } from "react-query";
 import { TorrClient } from "../utils/TorrClient";
 import TorrentDownloadBox from "../components/TorrentDownloadBox";
 import SeedsAndPeers from "../components/SeedsAndPeers";
-import { IoList, IoStop } from "react-icons/io5";
+import {
+  IoArrowDown,
+  IoArrowUp,
+  IoChevronDown,
+  IoClose,
+  IoFilter,
+  IoList,
+  IoStop,
+} from "react-icons/io5";
 import { useIsLargeScreen } from "../utils/screenSize";
 import { StatWithIcon } from "../components/StatWithIcon";
 import { parseFromString, qualityAliases, typeAliases } from "./tpb";
 import Filters from "../components/Filters";
 import CategorySelect from "../components/CategorySelect";
 import { SectionSM } from "./yts";
+import IosActionSheet from "../components/ios/IosActionSheet";
+import { deepCompare } from "../utils/deepCompare";
 
 const PluginSearch = (props: SearchProviderComponentProps) => {
   const [searchId, setSearchId] = useState<number>();
   const [addToCategory, setAddToCategory] = useState<string>("");
   const [savePath, setSavePath] = useState<string>("");
+  const [selectedEngines, setSelectedEngines] = useState<string[]>([]);
+  const [sortBy, setSortBy] = useState<string>("");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+
+  const sortDisclosure = useDisclosure();
 
   const { data: categories } = useQuery(
     "torrentsCategoryPlugin",
     TorrClient.getCategories, {
       staleTime: 10000
+    }
+  );
+
+  const { data: installedPlugins } = useQuery(
+    "searchPlugins",
+    TorrClient.getSearchPlugins,
+    {
+      staleTime: 60000,
     }
   );
 
@@ -54,12 +84,17 @@ const PluginSearch = (props: SearchProviderComponentProps) => {
     "blackAlpha.500"
   );
 
+  const inputBgColor = useColorModeValue("white", "gray.800");
+  const ButtonBgColorHover = useColorModeValue("grayAlpha.300", "grayAlpha.900");
+
   const { mutate: createSearch, isLoading: createLoading } = useMutation(
     "createSearch",
     (query: string) => TorrClient.createSearch(query),
     {
       onSuccess: (res) => {
         setSearchId(res.id);
+        setIsStopped(false);
+        props.filterState.setSourceList([]);
       },
     }
   );
@@ -76,7 +111,9 @@ const PluginSearch = (props: SearchProviderComponentProps) => {
     "stopSearch",
     () => TorrClient.stopSearch(searchId!),
     {
-      onSuccess: () => deleteSearch(),
+      onSuccess: () => {
+        setIsStopped(true);
+      },
     }
   );
 
@@ -97,8 +134,42 @@ const PluginSearch = (props: SearchProviderComponentProps) => {
     }
   }, [data?.status]);
 
+  useEffect(() => {
+    return () => {
+      if (searchId) {
+        TorrClient.deleteSearch(searchId).catch(console.error);
+      }
+    };
+  }, [searchId]);
+
+  const { setSourceList, sourceList: currentSourceList } = props.filterState;
+
+  useEffect(() => {
+    if (data?.results) {
+      const sourceList = new Set<string>();
+      data.results.forEach((torr) => {
+        const type = parseFromString(torr.fileName, typeAliases);
+        if (type) sourceList.add(type);
+      });
+      const newSourceList = Array.from(sourceList);
+      if (!deepCompare(newSourceList, currentSourceList)) {
+        setSourceList(newSourceList);
+      }
+    }
+  }, [data?.results, setSourceList, currentSourceList]);
+
+  const uniqueEngines = useMemo(() => {
+    const enginesFromResults = (data?.results || []).map(
+      (r) => r.engineName || "Jackett"
+    );
+    const enginesFromPlugins = (installedPlugins || [])
+      .filter((p) => p.enabled)
+      .map((p) => p.name);
+    return [...new Set([...enginesFromResults, ...enginesFromPlugins])];
+  }, [data?.results, installedPlugins]);
+
   const filteredResults = useMemo(() => {
-    return (data?.results || [])
+    let results = (data?.results || [])
       .filter((Torr) => {
         if (props.filterState.qualitySelected !== undefined) {
           const qual = parseFromString(Torr.fileName, qualityAliases);
@@ -121,16 +192,76 @@ const PluginSearch = (props: SearchProviderComponentProps) => {
         } else {
           return true;
         }
+      })
+      .filter((Torr) => {
+        if (selectedEngines.length > 0) {
+          return selectedEngines.includes(Torr.engineName || "Jackett");
+        } else {
+          return true;
+        }
       });
+
+    if (sortBy) {
+      results = results.sort((a, b) => {
+        let comparison = 0;
+        if (sortBy === "fileName") {
+          comparison = a.fileName.localeCompare(b.fileName);
+        } else if (sortBy === "fileSize") {
+          comparison = a.fileSize - b.fileSize;
+        } else if (sortBy === "nbSeeders") {
+          comparison = a.nbSeeders - b.nbSeeders;
+        } else if (sortBy === "pubDate") {
+          const parseDate = (date: any) => {
+            const d = typeof date === "number" ? date : parseInt(date);
+            if (d === -1) return 0; // Treat -1 as oldest (1970)
+            if (!isNaN(d)) {
+              return d < 30000000000 ? d * 1000 : d;
+            }
+            return new Date(date).getTime();
+          };
+          comparison = parseDate(a.pubDate) - parseDate(b.pubDate);
+        }
+        return sortOrder === "asc" ? comparison : -comparison;
+      });
+    }
+
+    return results;
   }, [
     data,
     props.filterState.selectedSource,
     props.filterState.minSeeds,
     props.filterState.qualitySelected,
+    selectedEngines,
+    sortBy,
+    sortOrder,
   ]);
 
+  const sortOptions = [
+    { label: "None", onClick: () => setSortBy(""), checked: sortBy === "" },
+    {
+      label: "File Name",
+      onClick: () => setSortBy("fileName"),
+      checked: sortBy === "fileName",
+    },
+    {
+      label: "File Size",
+      onClick: () => setSortBy("fileSize"),
+      checked: sortBy === "fileSize",
+    },
+    {
+      label: "Seeders",
+      onClick: () => setSortBy("nbSeeders"),
+      checked: sortBy === "nbSeeders",
+    },
+    {
+      label: "Publish Date",
+      onClick: () => setSortBy("pubDate"),
+      checked: sortBy === "pubDate",
+    },
+  ];
+
   return (
-    <VStack>
+    <VStack spacing={4} alignItems="stretch" w="100%">
       <IosSearch
         value={props.searchState[0]}
         onChange={(e) => props.searchState[1](e.target.value)}
@@ -156,7 +287,9 @@ const PluginSearch = (props: SearchProviderComponentProps) => {
             {data?.status !== "Stopped" && <Spinner color={"blue.500"} />}
             <Flex flexDirection={"column"} alignItems={"start"}>
               <Heading size={"md"}>
-                {data?.status === "Stopped" ? "Search stopped" : "Search in progress..."}
+                {data?.status === "Stopped"
+                  ? "Search stopped"
+                  : "Search in progress..."}
               </Heading>
               <StatWithIcon
                 icon={<IoList />}
@@ -165,54 +298,173 @@ const PluginSearch = (props: SearchProviderComponentProps) => {
             </Flex>
           </Flex>
           <LightMode>
-            <Button
-              leftIcon={<IoStop />}
-              colorScheme={"blue"}
-              onClick={() => stopSearch()}
-              isDisabled={data?.status === "Stopped"}
-            >
-              {data?.status === "Stopped" ? "Stopped" : "Stop"}
-            </Button>
+            {data?.status === "Stopped" ? (
+              <Button
+                leftIcon={<IoClose />}
+                colorScheme={"gray"}
+                onClick={() => deleteSearch()}
+              >
+                Clear
+              </Button>
+            ) : (
+              <Button
+                leftIcon={<IoStop />}
+                colorScheme={"blue"}
+                onClick={() => stopSearch()}
+              >
+                Stop
+              </Button>
+            )}
           </LightMode>
         </Flex>
       )}
-      {(!data?.results?.length || true) && <Filters {...props.filterState} />}
-      {data?.results && (
-        <>
-          <FormControl>
-            <FormLabel>Download Location</FormLabel>
-            <Input
-              value={savePath}
-              onChange={(e) => setSavePath(e.target.value)}
-              placeholder="Enter save path"
-            />
-          </FormControl>
-          <SectionSM
-            title={"Results"}
-            titleRight={
-              <CategorySelect
-                category={addToCategory}
-                onSelected={handleCategorySelect}
-              />
-            }
-          >
-            {filteredResults.map((result) => (
-              <TorrentDownloadBox
-                key={result.fileUrl}
-                magnetURL={result.fileUrl}
-                title={result.fileName}
-                category={addToCategory}
-                savePath={savePath}
+      <Filters
+        {...props.filterState}
+        indicator={selectedEngines.length + (sortBy ? 1 : 0)}
+      >
+        {uniqueEngines.length > 0 && (
+          <Box>
+            <FormLabel fontSize="sm" fontWeight="bold" mb={2}>
+              Filter by Engine
+            </FormLabel>
+            <Menu closeOnSelect={false}>
+              <MenuButton
+                as={Button}
+                size="sm"
+                variant="outline"
+                rightIcon={<IoChevronDown />}
+                w="full"
+                textAlign="left"
+                fontWeight="normal"
               >
-                <SeedsAndPeers
-                  seeds={result.nbSeeders.toString()}
-                  peers={result.nbLeechers.toString()}
-                  size={result.fileSize}
-                />
-              </TorrentDownloadBox>
-            ))}
-          </SectionSM>
-        </>
+                {selectedEngines.length > 0
+                  ? `${selectedEngines.length} Engines Selected`
+                  : "All Engines"}
+              </MenuButton>
+              <MenuList
+                maxH="300px"
+                overflowY="auto"
+                backgroundColor={"transparent"}
+                className={"glassEffect"}
+                rounded={20}
+                border={"none"}
+                shadow={"xl"}
+                p={0}
+                zIndex={1001}
+                overflow="hidden"
+              >
+                <Box className={"glassTint"} />
+                <Box className={"glassShine"} />
+                <Box position="relative" zIndex={3} py={2}>
+                  <MenuOptionGroup
+                    type="checkbox"
+                    value={selectedEngines}
+                    onChange={(val) => setSelectedEngines(val as string[])}
+                  >
+                    {uniqueEngines.map((engine) => (
+                      <MenuItemOption
+                        key={engine}
+                        value={engine}
+                        backgroundColor={"transparent"}
+                        _hover={{
+                          bgColor: ButtonBgColorHover,
+                        }}
+                        rounded={0}
+                      >
+                        {engine}
+                      </MenuItemOption>
+                    ))}
+                  </MenuOptionGroup>
+                </Box>
+              </MenuList>
+            </Menu>
+          </Box>
+        )}
+
+        {data?.results && data.results.length > 0 && (
+          <Box>
+            <FormLabel fontSize="sm" fontWeight="bold" mb={2}>
+              Sort Results
+            </FormLabel>
+            <Flex gap={2}>
+              <IosActionSheet
+                disclosure={sortDisclosure}
+                options={sortOptions}
+                trigger={
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    rightIcon={<IoFilter />}
+                    onClick={sortDisclosure.onOpen}
+                    flexGrow={1}
+                    justifyContent="space-between"
+                    fontWeight="normal"
+                  >
+                    {sortBy
+                      ? sortOptions.find((o) => o.checked)?.label
+                      : "Sort by..."}
+                  </Button>
+                }
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  setSortOrder(sortOrder === "asc" ? "desc" : "asc")
+                }
+                px={3}
+              >
+                {sortOrder === "asc" ? <IoArrowUp /> : <IoArrowDown />}
+              </Button>
+            </Flex>
+          </Box>
+        )}
+      </Filters>
+
+      {data?.results && (
+        <FormControl>
+          <FormLabel fontSize="sm" fontWeight="bold">
+            Download Location
+          </FormLabel>
+          <Input
+            size="sm"
+            rounded="md"
+            value={savePath}
+            onChange={(e) => setSavePath(e.target.value)}
+            placeholder="Enter save path"
+            bg={inputBgColor}
+          />
+        </FormControl>
+      )}
+
+      {data?.results && (
+        <SectionSM
+          title={`Results (${filteredResults.length})`}
+          titleRight={
+            <CategorySelect
+              category={addToCategory}
+              onSelected={handleCategorySelect}
+            />
+          }
+        >
+          {filteredResults.map((result) => (
+            <TorrentDownloadBox
+              key={result.fileUrl}
+              magnetURL={result.fileUrl}
+              title={result.fileName}
+              category={addToCategory}
+              savePath={savePath}
+            >
+              <SeedsAndPeers
+                seeds={result.nbSeeders.toString()}
+                peers={result.nbLeechers.toString()}
+                size={result.fileSize}
+                engine={result.engineName || "Jackett"}
+                date={result.pubDate}
+              />
+            </TorrentDownloadBox>
+          ))}
+        </SectionSM>
       )}
     </VStack>
   );
