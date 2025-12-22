@@ -1,10 +1,8 @@
 import React from "react";
 import {
-  Box,
   Button,
   Flex,
   SimpleGrid,
-  useColorModeValue,
 } from "@chakra-ui/react";
 import { GlassContainer } from "./GlassContainer";
 

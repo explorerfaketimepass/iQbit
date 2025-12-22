@@ -2,7 +2,6 @@ import PageHeader from "../components/PageHeader";
 import {
   Box,
   Button,
-  ButtonGroup,
   Flex,
   FormControl,
   FormErrorMessage,
@@ -20,7 +19,7 @@ import {
 import { IoDocumentAttach, IoPause, IoPlay } from "react-icons/io5";
 import { useMutation, useQuery } from "react-query";
 import { TorrClient } from "../utils/TorrClient";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import TorrentBox from "../components/TorrentBox";
 import { TorrTorrentInfo } from "../types";
 import IosBottomSheet from "../components/ios/IosBottomSheet";
@@ -53,7 +52,7 @@ const Home = () => {
     TorrClient.getCategories
   );
 
-  const { isLoading, isFetching } = useQuery(
+  const { isLoading } = useQuery(
     "torrentsTxData",
     () => TorrClient.sync(rid),
     {
@@ -144,8 +143,6 @@ const Home = () => {
     { onSuccess: addModalDisclosure.onClose }
   );
 
-  const isLarge = useIsLargeScreen();
-
   const filterDisclosure = useDisclosure();
   const [filterSearch, setFilterSearch] = useLocalStorage(
     "home-filter-search",
@@ -167,7 +164,6 @@ const Home = () => {
   };
 
   const bgColor = useColorModeValue("white", "gray.900");
-  const { isDarkMode } = useTernaryDarkMode();
 
   const filterIndicator = useMemo(() => {
     let indicator = 0;

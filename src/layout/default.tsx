@@ -4,7 +4,6 @@ import {
   Button,
   Divider,
   Flex,
-  SimpleGrid,
   useColorModeValue,
   useTheme,
 } from "@chakra-ui/react";
@@ -13,11 +12,9 @@ import { IconBaseProps } from "react-icons";
 import { useIsLargeScreen } from "../utils/screenSize";
 import { PageLabels, Pages } from "../Pages";
 import Home from "../pages/Home";
-import { NavLink, useLocation } from "react-router-dom";
-import useScrollPosition from "../hooks/useScrollPosition";
+import { useLocation } from "react-router-dom";
 import { useLogin } from "../utils/useLogin";
 import { logout } from "../components/Auth";
-import { isAndroid, isIOS } from "react-device-detect";
 import { useReadLocalStorage } from "usehooks-ts";
 import { defaultTabs } from "../pages/TabSelectorPage";
 import { GlassContainer } from "../components/GlassContainer";

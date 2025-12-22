@@ -13,12 +13,12 @@ import {
   VStack,
 } from "@chakra-ui/react";
 import IosSearch from "../components/ios/IosSearch";
-import {useMutation, useQuery} from "react-query";
+import {useMutation} from "react-query";
 import { YTSClient } from "../utils/YTSClient";
 import { useNavigate, useParams } from "react-router-dom";
 import IosBottomSheet from "../components/ios/IosBottomSheet";
 import TorrentDownloadBox from "../components/TorrentDownloadBox";
-import {IoChevronDown, IoEarth, IoPricetags, IoTime, IoWarning} from "react-icons/io5";
+import {IoEarth, IoPricetags, IoTime, IoWarning} from "react-icons/io5";
 import { SiRottentomatoes } from "react-icons/si";
 import SeedsAndPeers from "../components/SeedsAndPeers";
 import TorrentMovieData from "../components/TorrentMovieData";
@@ -26,8 +26,6 @@ import Filters from "../components/Filters";
 import { InfoDataBox } from "../components/InfoDataBox";
 import ReactGA from "react-ga";
 import PosterGrid from "../components/PosterGrid";
-import IosActionSheet from "../components/ios/IosActionSheet";
-import {TorrClient} from "../utils/TorrClient";
 import CategorySelect from "../components/CategorySelect";
 
 export const useSearchFromParams = (callback: () => void) => {

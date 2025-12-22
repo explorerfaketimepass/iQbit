@@ -1,12 +1,5 @@
 import {
   Box,
-  Button,
-  ButtonProps,
-  Drawer,
-  DrawerBody,
-  DrawerContent,
-  DrawerOverlay,
-  Flex,
   Icon,
   Menu,
   MenuButton,
@@ -16,7 +9,6 @@ import {
   UseDisclosureReturn,
 } from "@chakra-ui/react";
 import React, { PropsWithChildren, ReactElement } from "react";
-import { useIsLargeScreen } from "../../utils/screenSize";
 import { IoCheckmark } from "react-icons/io5";
 
 export type IosActionSheetOptions = {

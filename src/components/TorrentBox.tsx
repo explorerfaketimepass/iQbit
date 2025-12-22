@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useMemo, useState } from "react";
+import React, { memo, useEffect, useState } from "react";
 import {
   Box,
   BoxProps,
@@ -45,9 +45,6 @@ import IosBottomSheet from "./ios/IosBottomSheet";
 import { Input } from "@chakra-ui/input";
 import TorrentInformationContent from "./TorrentInformationContent";
 import { CreateETAString } from "../utils/createETAString";
-import { useIsLargeScreen } from "../utils/screenSize";
-import { GlassContainer } from "./GlassContainer";
-import { colors } from "../App";
 
 export interface TorrentBoxProps {
   torrentData: Omit<TorrTorrentInfo, "hash">;
